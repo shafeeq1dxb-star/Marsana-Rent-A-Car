@@ -43,8 +43,14 @@ export const metadata: Metadata = {
   generator: "v0.app",
   keywords: ["car rental", "luxury cars", "premium fleet", "Marsana"],
   icons: {
-    icon: "/logo.jpg",
-    apple: "/logo.jpg",
+    icon: [
+      { url: "/logo.jpg", sizes: "any" },
+      { url: "/logo.jpg", type: "image/jpeg" },
+    ],
+    apple: [
+      { url: "/logo.jpg", sizes: "180x180", type: "image/jpeg" },
+    ],
+    shortcut: "/logo.jpg",
   },
   openGraph: {
     title: "Marsana - Drive the Extraordinary",
