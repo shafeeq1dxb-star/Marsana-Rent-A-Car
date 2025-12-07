@@ -1445,11 +1445,10 @@ export default function LandingPage() {
                   <div 
                     className="flex-1 overflow-y-auto px-3 sm:px-4 pb-4 lg:pb-4" 
                     style={{ 
-                      WebkitOverflowScrolling: 'touch', 
+                      WebkitOverflowScrolling: 'touch' as any, 
                       scrollBehavior: 'smooth',
                       overscrollBehavior: 'contain',
-                      WebkitOverscrollBehavior: 'contain',
-                    }}
+                    } as React.CSSProperties}
                   >
                     <form onSubmit={handleSubmit} className="space-y-4 pt-2" id="booking-form">
                       {/* Step 1: Personal Information */}
