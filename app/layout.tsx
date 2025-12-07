@@ -43,21 +43,27 @@ export const metadata: Metadata = {
   generator: "v0.app",
   keywords: ["car rental", "luxury cars", "premium fleet", "Marsana"],
   icons: {
-    icon: [
+    icon: "/logo.jpg",
+    apple: "/logo.jpg",
+  },
+  openGraph: {
+    title: "Marsana - Drive the Extraordinary",
+    description: "Premium car rental fleet with unbeatable rates and instant reservation. Experience luxury car rental reimagined.",
+    images: [
       {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
+        url: "/logo.jpg",
+        width: 1200,
+        height: 630,
+        alt: "Marsana Rent A Car",
       },
     ],
-    apple: "/apple-icon.png",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Marsana - Drive the Extraordinary",
+    description: "Premium car rental fleet with unbeatable rates and instant reservation.",
+    images: ["/logo.jpg"],
   },
 }
 
