@@ -50,7 +50,7 @@ import { Label } from "@/components/ui/label"
 import { Hero3 } from "@/components/ui/hero-3"
 import { useLanguage } from "@/lib/language-context"
 import Footer from "@/components/footer"
-import LeadGateModal from "@/components/LeadGateModal"
+import { LanguageSwitcher } from "@/components/LanguageSwitcher"
 
 type View = "landing" | "showcase" | "reservation" | "success" | "car-detail"
 type CollectionMethod = "branch" | "delivery"
@@ -265,9 +265,6 @@ export default function LandingPage() {
   const [mounted, setMounted] = useState(false)
   const [dateError, setDateError] = useState<string>("")
   const [carAnimationKey, setCarAnimationKey] = useState(0)
-  const [isVerified, setIsVerified] = useState(false)
-  const [showLeadGate, setShowLeadGate] = useState(false)
-  const [pendingView, setPendingView] = useState<View | null>(null)
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
@@ -296,21 +293,6 @@ export default function LandingPage() {
 
   useEffect(() => {
     setMounted(true)
-    // Check if user is verified
-    const verified = localStorage.getItem("is_verified") === "true"
-    setIsVerified(verified)
-    
-    // Listen for storage changes (for cross-tab sync)
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === "is_verified") {
-        setIsVerified(e.newValue === "true")
-      }
-    }
-    window.addEventListener("storage", handleStorageChange)
-    
-    return () => {
-      window.removeEventListener("storage", handleStorageChange)
-    }
   }, [])
 
   // Ensure scroll to top when ANY view changes
@@ -318,40 +300,10 @@ export default function LandingPage() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }, [currentView])
 
-  // Check verification when showcase view is accessed
-  useEffect(() => {
-    if (currentView === "showcase" && !isVerified) {
-      setPendingView("showcase")
-      setShowLeadGate(true)
-    }
-  }, [currentView, isVerified])
-  
-  // Auto-navigate after verification if pending
-  useEffect(() => {
-    if (isVerified && pendingView && !showLeadGate) {
-      if (pendingView === "showcase") {
-        setCurrentView("showcase")
-      } else if (pendingView === "car-detail" && selectedCar) {
-        setCurrentView("car-detail")
-      }
-      setPendingView(null)
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: "smooth" })
-      }, 0)
-    }
-  }, [isVerified, pendingView, showLeadGate, selectedCar])
 
   const t = translations[language]
 
   const handleCarSelect = (car: CarData) => {
-    // Check verification before allowing booking
-    if (!isVerified) {
-      setPendingView("car-detail")
-      setSelectedCar(car)
-      setShowLeadGate(true)
-      return
-    }
-    
     setSelectedCar(car)
     setCarAnimationKey((prev) => prev + 1) // Trigger animation restart
     setCurrentView("car-detail")
@@ -362,37 +314,11 @@ export default function LandingPage() {
   }
 
   const handleShowcaseView = () => {
-    // Always check verification status from localStorage first
-    const verified = localStorage.getItem("is_verified") === "true"
-    setIsVerified(verified)
-    
-    // Check verification before showing fleet
-    if (!verified) {
-      setPendingView("showcase")
-      setShowLeadGate(true)
-      return
-    }
     setCurrentView("showcase")
     // Scroll to top immediately
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: "smooth" })
     }, 0)
-  }
-
-  const handleLeadGateClose = () => {
-    setShowLeadGate(false)
-    // Re-check verification status
-    const verified = localStorage.getItem("is_verified") === "true"
-    setIsVerified(verified)
-    
-    // If user was trying to navigate somewhere, do it now
-    if (verified && pendingView) {
-      setCurrentView(pendingView)
-      setPendingView(null)
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: "smooth" })
-      }, 0)
-    }
   }
 
   const calculateTotal = () => {
@@ -421,9 +347,47 @@ export default function LandingPage() {
     return Math.round(basePrice + deliveryFee)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setCurrentView("success")
+    
+    if (!selectedCar) return
+
+    const total = calculateTotal()
+    
+    const submissionData = {
+      fullName: formData.fullName,
+      phone: formData.phone,
+      countryCode: formData.countryCode,
+      email: formData.email,
+      carName: selectedCar.name,
+      carYear: selectedCar.year,
+      pickupDate: formData.pickupDate,
+      dropOffDate: formData.dropOffDate,
+      collectionMethod: formData.collectionMethod,
+      selectedBranch: formData.selectedBranch,
+      total: total,
+    }
+
+    try {
+      const response = await fetch("/api/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(submissionData),
+      })
+
+      if (response.ok) {
+        setCurrentView("success")
+      } else {
+        // Still show success even if API fails (graceful degradation)
+        setCurrentView("success")
+      }
+    } catch (error) {
+      // Still show success even if API fails (graceful degradation)
+      console.error("Error submitting form:", error)
+      setCurrentView("success")
+    }
   }
 
   return (
@@ -441,6 +405,11 @@ export default function LandingPage() {
           >
             {/* Hero Section */}
             <div className="relative min-h-[70vh] flex items-center justify-center overflow-hidden bg-gradient-to-br from-gray-900 via-black to-gray-900">
+              {/* Language Switcher - Top Right */}
+              <div className="absolute top-4 right-4 z-20">
+                <LanguageSwitcher />
+              </div>
+              
               {/* Animated gradient background */}
               <div className="absolute inset-0">
                 <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_80%_50%_at_50%_0%,#000_70%,transparent_110%)]" />
@@ -496,7 +465,10 @@ export default function LandingPage() {
                     >
                       {/* English Get Started Button */}
                       <ShinyButton
-                        onClick={handleShowcaseView}
+                        onClick={() => {
+                          setLanguage("en")
+                          handleShowcaseView()
+                        }}
                         className="text-white text-lg px-8 py-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
                       >
                         <span className="flex items-center gap-2">
@@ -507,7 +479,10 @@ export default function LandingPage() {
                       
                       {/* Arabic Get Started Button */}
                       <ShinyButton
-                        onClick={handleShowcaseView}
+                        onClick={() => {
+                          setLanguage("ar")
+                          handleShowcaseView()
+                        }}
                         className="text-white text-lg px-8 py-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
                       >
                         <span className="flex items-center gap-2">
@@ -635,8 +610,12 @@ export default function LandingPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.5 }}
-            className="min-h-screen py-16 px-4 metallic-matte-white"
+            className="min-h-screen py-16 px-4 metallic-matte-white relative"
           >
+            {/* Language Switcher - Top Right */}
+            <div className="absolute top-8 right-8 z-20">
+              <LanguageSwitcher />
+            </div>
             <div className="absolute top-8 right-8 z-20 flex items-center gap-4">
               <img src="/logo.jpg" alt="Marsana Logo" className="h-16 w-auto drop-shadow-xl md:h-[150px]" />
             </div>
@@ -677,19 +656,19 @@ export default function LandingPage() {
                       </CardHeader>
                       <CardContent className="p-3 pt-1.5">
                         <div className="space-y-1.5 mb-2 relative">
-                          <div className={`flex justify-between items-center py-0.5 border-b border-border/50 ${!isVerified ? "blur-sm select-none" : ""}`}>
+                          <div className="flex justify-between items-center py-0.5 border-b border-border/50">
                             <span className="text-muted-foreground text-xs">{t.showcase.daily}</span>
                             <span className="text-base font-bold text-foreground">
                               {car.daily} {language === "ar" ? "ريال" : "SAR"}
                             </span>
                           </div>
-                          <div className={`flex justify-between items-center py-0.5 border-b border-border/50 ${!isVerified ? "blur-sm select-none" : ""}`}>
+                          <div className="flex justify-between items-center py-0.5 border-b border-border/50">
                             <span className="text-muted-foreground text-xs">{t.showcase.weekly}</span>
                             <span className="text-base font-bold text-foreground">
                               {car.weekly} {language === "ar" ? "ريال" : "SAR"}
                             </span>
                           </div>
-                          <div className={`flex justify-between items-center py-0.5 border-b border-border/50 ${!isVerified ? "blur-sm select-none" : ""}`}>
+                          <div className="flex justify-between items-center py-0.5 border-b border-border/50">
                             <span className="text-muted-foreground text-xs">{t.showcase.monthly}</span>
                             <span className="text-base font-bold text-foreground">
                               {car.monthly} {language === "ar" ? "ريال" : "SAR"}
@@ -995,6 +974,12 @@ export default function LandingPage() {
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
+            className="relative"
+          >
+            {/* Language Switcher - Top Right */}
+            <div className="absolute top-4 right-4 z-20">
+              <LanguageSwitcher />
+            </div>
             className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[oklch(0.18_0.05_250)] via-[oklch(0.15_0_0)] to-[oklch(0.12_0_0)]"
           >
             <div className="absolute top-8 right-8 z-20 flex items-center gap-4">
@@ -1101,7 +1086,7 @@ export default function LandingPage() {
               }}
             >
               {/* Top Navigation Bar - Black Header */}
-              <div className="bg-black border-b border-gray-800 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0">
+              <div className="bg-black border-b border-gray-800 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0 relative">
                 {/* Back to Fleet Button - Left */}
                 <button
                   onClick={handleShowcaseView}
@@ -1110,6 +1095,11 @@ export default function LandingPage() {
                   <ArrowLeft className={`h-4 w-4 ${language === "ar" ? "rotate-180" : ""}`} />
                   <span className="text-sm font-medium">{t.showcase.back}</span>
                 </button>
+                
+                {/* Language Switcher - Center Right */}
+                <div className="absolute right-16 top-1/2 -translate-y-1/2">
+                  <LanguageSwitcher />
+                </div>
                 
                 {/* Home Button - Right */}
                 <button
@@ -1123,6 +1113,80 @@ export default function LandingPage() {
 
               {/* Main Content Area - Mobile Responsive - Fits Screen */}
               <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
+                {/* Mobile: Car Image Section - Top Half */}
+                <div className="lg:hidden flex-shrink-0 h-[40vh] min-h-[300px] bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden" style={{ perspective: "1200px", perspectiveOrigin: "center center" }}>
+                  <div className="relative w-full h-full max-w-md flex items-center justify-center" style={{ transformStyle: "preserve-3d" }}>
+                    <motion.div
+                      key={`car-container-mobile-${selectedCar.id}-${carAnimationKey}`}
+                      initial={{ 
+                        scale: 0.2,
+                        opacity: 0,
+                      }}
+                      animate={{ 
+                        scale: 1,
+                        opacity: 1,
+                      }}
+                      transition={{
+                        duration: 1.5,
+                        ease: [0.16, 1, 0.3, 1],
+                        opacity: { duration: 1 },
+                      }}
+                      style={{
+                        transformStyle: "preserve-3d",
+                        transformOrigin: "center center",
+                        width: "100%",
+                        height: "100%",
+                      }}
+                      className="relative flex items-center justify-center"
+                    >
+                      <motion.img
+                        key={`car-image-mobile-${selectedCar.id}-${carAnimationKey}`}
+                        src={getCarImage(selectedCar.name)}
+                        alt={selectedCar.name}
+                        className="w-full h-full object-contain"
+                        style={{
+                          filter: "drop-shadow(0 20px 40px rgba(0, 0, 0, 0.3)) drop-shadow(0 10px 20px rgba(0, 0, 0, 0.2))",
+                          transform: "translateZ(0)",
+                        }}
+                        initial={{ 
+                          scale: 0.2,
+                          filter: "blur(10px)",
+                        }}
+                        animate={{ 
+                          scale: 1,
+                          filter: "blur(0px)",
+                        }}
+                        transition={{
+                          duration: 1.5,
+                          ease: [0.16, 1, 0.3, 1],
+                          filter: { duration: 1.2 },
+                        }}
+                      />
+                      {/* Subtle glow effect for depth */}
+                      <motion.div
+                        key={`car-glow-mobile-${selectedCar.id}-${carAnimationKey}`}
+                        className="absolute inset-0 -z-10"
+                        style={{
+                          background: "radial-gradient(ellipse at center, rgba(0, 0, 0, 0.15) 0%, transparent 70%)",
+                          filter: "blur(40px)",
+                        }}
+                        initial={{ 
+                          scale: 0.3, 
+                          opacity: 0,
+                        }}
+                        animate={{ 
+                          scale: 2, 
+                          opacity: 0.4,
+                        }}
+                        transition={{
+                          duration: 2,
+                          ease: "easeOut",
+                        }}
+                      />
+                    </motion.div>
+                  </div>
+                </div>
+                
                 {/* Left Sidebar - Scrolling Car List */}
                 <div className="hidden lg:flex w-64 xl:w-80 bg-white border-r border-gray-200 flex-col flex-shrink-0 overflow-hidden">
                   <div className="p-4 border-b border-gray-200 flex-shrink-0">
@@ -1187,8 +1251,8 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                {/* Central Car Display - Coming from Inside Screen Animation - Mobile Responsive */}
-                <div className="flex-1 bg-gray-50 flex items-center justify-center p-2 sm:p-4 lg:p-6 relative min-h-0 flex-shrink-0 overflow-hidden" style={{ perspective: "1200px", perspectiveOrigin: "center center" }}>
+                {/* Central Car Display - Coming from Inside Screen Animation - Desktop Only */}
+                <div className="hidden lg:flex flex-1 bg-gray-50 items-center justify-center p-2 sm:p-4 lg:p-6 relative min-h-0 flex-shrink-0 overflow-hidden" style={{ perspective: "1200px", perspectiveOrigin: "center center" }}>
                   <div className="relative w-full h-full max-w-4xl flex items-center justify-center" style={{ transformStyle: "preserve-3d" }}>
                     <motion.div
                       key={`car-container-${selectedCar.id}-${carAnimationKey}`}
@@ -1262,7 +1326,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Right Sidebar - Reservation Form - Mobile Responsive */}
-                <div className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-4 flex flex-col flex-shrink-0 overflow-y-auto min-h-0">
+                <div className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-4 flex flex-col flex-shrink-0 overflow-y-auto min-h-0 max-h-[60vh] lg:max-h-screen">
                   <div className="mb-3 sm:mb-4">
                     <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">{t.form.title}</h3>
                     <p className="text-xs sm:text-sm text-gray-500">{selectedCar.name} ({selectedCar.year})</p>
@@ -1494,9 +1558,6 @@ export default function LandingPage() {
           )}
         </AnimatePresence>
       </div>
-      
-      {/* Lead Gate Modal */}
-      <LeadGateModal isOpen={showLeadGate} onClose={handleLeadGateClose} />
       
       <Footer />
     </div>
