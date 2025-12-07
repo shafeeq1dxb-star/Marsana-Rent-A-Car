@@ -49,7 +49,19 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     setLanguageState(lang)
     localStorage.setItem("language", lang)
     applyLanguageSettings(lang)
+    // Force re-render by updating state immediately
+    if (typeof window !== "undefined") {
+      document.documentElement.setAttribute("dir", lang === "ar" ? "rtl" : "ltr")
+      document.documentElement.setAttribute("lang", lang)
+    }
   }
+  
+  // Update language settings when language changes
+  useEffect(() => {
+    if (mounted) {
+      applyLanguageSettings(language)
+    }
+  }, [language, mounted])
 
   const toggleLanguage = () => {
     const newLanguage = language === "en" ? "ar" : "en"

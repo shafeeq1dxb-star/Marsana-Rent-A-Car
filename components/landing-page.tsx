@@ -467,7 +467,10 @@ export default function LandingPage() {
                       <ShinyButton
                         onClick={() => {
                           setLanguage("en")
-                          handleShowcaseView()
+                          // Force immediate language application
+                          setTimeout(() => {
+                            handleShowcaseView()
+                          }, 100)
                         }}
                         className="text-white text-lg px-8 py-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
                       >
@@ -481,7 +484,10 @@ export default function LandingPage() {
                       <ShinyButton
                         onClick={() => {
                           setLanguage("ar")
-                          handleShowcaseView()
+                          // Force immediate language application
+                          setTimeout(() => {
+                            handleShowcaseView()
+                          }, 100)
                         }}
                         className="text-white text-lg px-8 py-6 rounded-lg shadow-lg hover:shadow-xl transition-all duration-300"
                       >
@@ -1114,7 +1120,7 @@ export default function LandingPage() {
               {/* Main Content Area - Mobile Responsive - Fits Screen */}
               <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
                 {/* Mobile: Car Image Section - Top Half */}
-                <div className="lg:hidden flex-shrink-0 h-[40vh] min-h-[300px] bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden" style={{ perspective: "1200px", perspectiveOrigin: "center center" }}>
+                <div className="lg:hidden flex-shrink-0 h-[45vh] min-h-[350px] bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden" style={{ perspective: "1200px", perspectiveOrigin: "center center" }}>
                   <div className="relative w-full h-full max-w-md flex items-center justify-center" style={{ transformStyle: "preserve-3d" }}>
                     <motion.div
                       key={`car-container-mobile-${selectedCar.id}-${carAnimationKey}`}
@@ -1326,7 +1332,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Right Sidebar - Reservation Form - Mobile Responsive */}
-                <div className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-4 flex flex-col flex-shrink-0 overflow-y-auto min-h-0 max-h-[60vh] lg:max-h-screen">
+                <div className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-4 flex flex-col flex-shrink-0 overflow-y-auto min-h-0 max-h-[55vh] lg:max-h-screen">
                   <div className="mb-3 sm:mb-4">
                     <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">{t.form.title}</h3>
                     <p className="text-xs sm:text-sm text-gray-500">{selectedCar.name} ({selectedCar.year})</p>

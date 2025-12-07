@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
-import { FileText, Mail, Phone, Calendar, Car, MapPin, DollarSign, Download, RefreshCw } from "lucide-react"
+import { FileText, Mail, Phone, Calendar, Car, MapPin, DollarSign, Download, RefreshCw, Lock } from "lucide-react"
 import { useLanguage } from "@/lib/language-context"
 import { LanguageSwitcher } from "@/components/LanguageSwitcher"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 interface Submission {
   id: string
@@ -66,10 +68,41 @@ export default function AdminPage() {
   const t = translations[language]
   const [submissions, setSubmissions] = useState<Submission[]>([])
   const [loading, setLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [loginError, setLoginError] = useState("")
 
   useEffect(() => {
-    fetchSubmissions()
+    // Check if already authenticated
+    const authStatus = sessionStorage.getItem("admin_authenticated")
+    if (authStatus === "true") {
+      setIsAuthenticated(true)
+      fetchSubmissions()
+    }
   }, [])
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault()
+    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || "admin"
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || "marsana2024"
+
+    if (username === adminUsername && password === adminPassword) {
+      setIsAuthenticated(true)
+      sessionStorage.setItem("admin_authenticated", "true")
+      setLoginError("")
+      fetchSubmissions()
+    } else {
+      setLoginError("Invalid username or password")
+    }
+  }
+
+  const handleLogout = () => {
+    setIsAuthenticated(false)
+    sessionStorage.removeItem("admin_authenticated")
+    setUsername("")
+    setPassword("")
+  }
 
   const fetchSubmissions = async () => {
     try {
@@ -116,6 +149,76 @@ export default function AdminPage() {
     document.body.removeChild(link)
   }
 
+  // Login Form
+  if (!isAuthenticated) {
+    return (
+      <div className={`min-h-screen bg-gray-900 flex items-center justify-center p-4 ${language === "ar" ? "rtl" : "ltr"}`}>
+        <div className="w-full max-w-md">
+          {/* Language Switcher - Top Right */}
+          <div className="absolute top-4 right-4 z-20">
+            <LanguageSwitcher />
+          </div>
+
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-gray-800/50 backdrop-blur-sm border border-gray-700 rounded-lg p-8"
+          >
+            <div className="flex items-center justify-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-[#D4AF37]/20 flex items-center justify-center">
+                <Lock className="h-8 w-8 text-[#D4AF37]" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-white text-center mb-2">
+              {language === "ar" ? "تسجيل الدخول" : "Admin Login"}
+            </h2>
+            <p className="text-gray-400 text-center mb-6 text-sm">
+              {language === "ar" ? "الرجاء إدخال بيانات الاعتماد للوصول إلى لوحة التحكم" : "Please enter credentials to access admin dashboard"}
+            </p>
+
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div>
+                <label className="text-gray-300 text-sm mb-2 block">
+                  {language === "ar" ? "اسم المستخدم" : "Username"}
+                </label>
+                <Input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className="w-full bg-gray-700 border-gray-600 text-white"
+                  placeholder={language === "ar" ? "اسم المستخدم" : "Username"}
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-gray-300 text-sm mb-2 block">
+                  {language === "ar" ? "كلمة المرور" : "Password"}
+                </label>
+                <Input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-gray-700 border-gray-600 text-white"
+                  placeholder={language === "ar" ? "كلمة المرور" : "Password"}
+                  required
+                />
+              </div>
+              {loginError && (
+                <p className="text-red-400 text-sm text-center">{loginError}</p>
+              )}
+              <Button
+                type="submit"
+                className="w-full bg-[#D4AF37] hover:bg-[#F4D03F] text-black font-semibold"
+              >
+                {language === "ar" ? "تسجيل الدخول" : "Login"}
+              </Button>
+            </form>
+          </motion.div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className={`min-h-screen bg-gray-900 ${language === "ar" ? "rtl" : "ltr"}`}>
       {/* Language Switcher - Top Right */}
@@ -134,7 +237,7 @@ export default function AdminPage() {
         </motion.div>
 
         {/* Action Buttons */}
-        <div className="flex gap-4 mb-6">
+        <div className="flex gap-4 mb-6 flex-wrap">
           <button
             onClick={fetchSubmissions}
             disabled={loading}
@@ -150,6 +253,13 @@ export default function AdminPage() {
           >
             <Download className="h-4 w-4" />
             {t.export}
+          </button>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors flex items-center gap-2"
+          >
+            <Lock className="h-4 w-4" />
+            {language === "ar" ? "تسجيل الخروج" : "Logout"}
           </button>
         </div>
 
