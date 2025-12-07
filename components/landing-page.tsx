@@ -138,7 +138,7 @@ const translations = {
       emailOptional: "(Optional)",
       pickupDate: "Pickup Date",
       dropOffDate: "Drop-off Date",
-      dateLimitError: "Bookings are only available up to 3 days in advance. Please come back before 3 days of your desired pickup date.",
+      dateLimitError: "Pickup date must be within 3 days from today. Please select a date from today up to 3 days ahead.",
       collectionMethod: "Collection Method",
       pickupBranch: "Pickup from Branch",
       pickupDesc: "Collect from our location",
@@ -208,7 +208,7 @@ const translations = {
       emailOptional: "(اختياري)",
       pickupDate: "تاريخ الاستلام",
       dropOffDate: "تاريخ التسليم",
-      dateLimitError: "الحجوزات متاحة فقط حتى 3 أيام مقدمًا. يرجى العودة قبل 3 أيام من تاريخ الاستلام المطلوب.",
+      dateLimitError: "يجب أن يكون تاريخ الاستلام خلال 3 أيام من اليوم. يرجى اختيار تاريخ من اليوم حتى 3 أيام قادمة.",
       collectionMethod: "طريقة الاستلام",
       pickupBranch: "استلام من الفرع",
       pickupDesc: "استلم من موقعنا",
@@ -276,19 +276,29 @@ export default function LandingPage() {
     selectedBranch: "Sulaimaniyya Jeddah",
   })
 
-  // Calculate maximum booking date (3 days from today)
-  const getMaxBookingDate = () => {
+  // Calculate maximum pickup date (3 days from today - user can only book starting within 3 days)
+  const getMaxPickupDate = () => {
     const today = new Date()
     const maxDate = new Date(today)
     maxDate.setDate(today.getDate() + 3)
     return maxDate.toISOString().split("T")[0]
   }
 
-  const getMinBookingDate = () => {
+  // Minimum pickup date is today
+  const getMinPickupDate = () => {
     const today = new Date()
-    const tomorrow = new Date(today)
-    tomorrow.setDate(today.getDate() + 1)
-    return tomorrow.toISOString().split("T")[0]
+    return today.toISOString().split("T")[0]
+  }
+
+  // Dropoff date has no maximum limit, but must be after pickup date
+  const getMinDropoffDate = () => {
+    if (formData.pickupDate) {
+      const pickup = new Date(formData.pickupDate)
+      const nextDay = new Date(pickup)
+      nextDay.setDate(pickup.getDate() + 1)
+      return nextDay.toISOString().split("T")[0]
+    }
+    return getMinPickupDate()
   }
 
   useEffect(() => {
@@ -299,6 +309,45 @@ export default function LandingPage() {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }, [currentView])
+
+  // Handle mobile form field focus - scroll only the form container, not the whole page
+  useEffect(() => {
+    if (currentView !== "car-detail") return
+    
+    const formContainer = document.getElementById("booking-form-container")
+    const formInputs = document.querySelectorAll("#booking-form input, #booking-form select, #booking-form textarea")
+    
+    const handleFocus = (e: Event) => {
+      const target = e.target as HTMLElement
+      if (formContainer && target) {
+        // Small delay to ensure input is focused
+        setTimeout(() => {
+          const containerRect = formContainer.getBoundingClientRect()
+          const inputRect = target.getBoundingClientRect()
+          
+          // Check if input is outside visible area of form container
+          if (inputRect.top < containerRect.top || inputRect.bottom > containerRect.bottom) {
+            // Scroll the form container, not the window
+            const scrollOffset = inputRect.top - containerRect.top - 20 // 20px padding from top
+            formContainer.scrollBy({
+              top: scrollOffset,
+              behavior: 'smooth'
+            })
+          }
+        }, 100)
+      }
+    }
+
+    formInputs.forEach(input => {
+      input.addEventListener('focus', handleFocus)
+    })
+
+    return () => {
+      formInputs.forEach(input => {
+        input.removeEventListener('focus', handleFocus)
+      })
+    }
+  }, [currentView, selectedCar])
 
 
   const t = translations[language]
@@ -619,10 +668,10 @@ export default function LandingPage() {
             className="min-h-screen py-16 px-4 metallic-matte-white relative"
           >
             {/* Language Switcher - Top Right */}
-            <div className="absolute top-8 right-8 z-20">
+            <div className="absolute top-6 right-6 z-20">
               <LanguageSwitcher />
             </div>
-            <div className="absolute top-8 right-8 z-20 flex items-center gap-4">
+            <div className="absolute top-6 left-6 z-20 flex items-center gap-4">
               <img src="/logo.jpg" alt="Marsana Logo" className="h-16 w-auto drop-shadow-xl md:h-[150px]" />
             </div>
             <div className="max-w-7xl mx-auto">
@@ -859,14 +908,14 @@ export default function LandingPage() {
                           value={formData.pickupDate}
                           onChange={(e) => {
                             const selectedDate = e.target.value
-                            const maxDate = getMaxBookingDate()
-                            const minDate = getMinBookingDate()
+                            const maxDate = getMaxPickupDate()
+                            const minDate = getMinPickupDate()
                             
                             if (selectedDate > maxDate) {
                               setDateError(t.form.dateLimitError)
                               setFormData({ ...formData, pickupDate: "", dropOffDate: "" })
                             } else if (selectedDate < minDate) {
-                              setDateError(language === "ar" ? "يرجى اختيار تاريخ من الغد فصاعدًا" : "Please select a date from tomorrow onwards")
+                              setDateError(language === "ar" ? "يرجى اختيار تاريخ من اليوم فصاعدًا" : "Please select a date from today onwards")
                               setFormData({ ...formData, pickupDate: "", dropOffDate: "" })
                             } else {
                               setDateError("")
@@ -874,8 +923,8 @@ export default function LandingPage() {
                             }
                           }}
                           className="h-12 text-base border-2 border-gray-300 bg-white text-gray-900 focus:border-[oklch(0.35_0.02_250)] focus:ring-[oklch(0.35_0.02_250)] rounded-lg"
-                          min={getMinBookingDate()}
-                          max={getMaxBookingDate()}
+                          min={getMinPickupDate()}
+                          max={getMaxPickupDate()}
                         />
                         {dateError && (
                           <p className="text-sm text-red-500 mt-2 flex items-center gap-2">
@@ -899,10 +948,10 @@ export default function LandingPage() {
                           value={formData.dropOffDate}
                           onChange={(e) => {
                             const selectedDate = e.target.value
-                            const maxDate = getMaxBookingDate()
+                            const minDate = getMinDropoffDate()
                             
-                            if (selectedDate > maxDate) {
-                              setDateError(t.form.dateLimitError)
+                            if (selectedDate < minDate) {
+                              setDateError(language === "ar" ? "يجب أن يكون تاريخ التسليم بعد تاريخ الاستلام" : "Drop-off date must be after pickup date")
                               setFormData({ ...formData, dropOffDate: "" })
                             } else {
                               setDateError("")
@@ -910,8 +959,7 @@ export default function LandingPage() {
                             }
                           }}
                           className="h-12 text-base border-2 border-gray-300 bg-white text-gray-900 focus:border-[oklch(0.35_0.02_250)] focus:ring-[oklch(0.35_0.02_250)] rounded-lg"
-                          min={formData.pickupDate || getMinBookingDate()}
-                          max={getMaxBookingDate()}
+                          min={getMinDropoffDate()}
                           disabled={!formData.pickupDate}
                         />
                       </div>
@@ -983,12 +1031,12 @@ export default function LandingPage() {
             className="relative"
           >
             {/* Language Switcher - Top Right */}
-            <div className="absolute top-4 right-4 z-20">
+            <div className="absolute top-6 right-6 z-20">
               <LanguageSwitcher />
             </div>
-            className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[oklch(0.18_0.05_250)] via-[oklch(0.15_0_0)] to-[oklch(0.12_0_0)]"
-          >
-            <div className="absolute top-8 right-8 z-20 flex items-center gap-4">
+            
+            <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-[oklch(0.18_0.05_250)] via-[oklch(0.15_0_0)] to-[oklch(0.12_0_0)]">
+              <div className="absolute top-8 left-8 z-20 flex items-center gap-4">
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-radial from-[oklch(0.95_0.01_250)]/50 via-[oklch(0.95_0.01_250)]/20 to-transparent blur-3xl scale-[2] -z-10"></div>
                 <div className="absolute inset-0 bg-[oklch(0.95_0.01_250)]/30 blur-2xl scale-150 -z-10"></div>
@@ -998,8 +1046,8 @@ export default function LandingPage() {
                   className="h-16 w-auto drop-shadow-xl md:h-[150px] relative z-10"
                 />
               </div>
-            </div>
-            <div className="text-center max-w-2xl">
+              </div>
+              <div className="text-center max-w-2xl">
               <motion.div
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
@@ -1074,6 +1122,7 @@ export default function LandingPage() {
               >
                 {t.success.backHome}
               </Button>
+              </div>
             </div>
           </motion.div>
           )}
@@ -1092,28 +1141,28 @@ export default function LandingPage() {
               }}
             >
               {/* Top Navigation Bar - Black Header */}
-              <div className="bg-black border-b border-gray-800 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0 relative">
+              <div className="bg-black border-b border-gray-800 px-3 sm:px-6 py-3 sm:py-4 flex items-center justify-between flex-shrink-0 gap-3">
                 {/* Back to Fleet Button - Left */}
                 <button
                   onClick={handleShowcaseView}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 text-white transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 text-white transition-colors flex-shrink-0"
                 >
                   <ArrowLeft className={`h-4 w-4 ${language === "ar" ? "rotate-180" : ""}`} />
-                  <span className="text-sm font-medium">{t.showcase.back}</span>
+                  <span className="text-sm font-medium hidden sm:inline">{t.showcase.back}</span>
                 </button>
                 
-                {/* Language Switcher - Center Right */}
-                <div className="absolute right-16 top-1/2 -translate-y-1/2">
+                {/* Language Switcher - Center */}
+                <div className="flex-1 flex justify-center">
                   <LanguageSwitcher />
                 </div>
                 
                 {/* Home Button - Right */}
                 <button
                   onClick={() => setCurrentView("landing")}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 text-white transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 hover:bg-gray-800 text-white transition-colors flex-shrink-0"
                 >
                   <Home className="h-4 w-4" />
-                  <span className="text-sm font-medium">{language === "ar" ? "الرئيسية" : "Home"}</span>
+                  <span className="text-sm font-medium hidden sm:inline">{language === "ar" ? "الرئيسية" : "Home"}</span>
                 </button>
               </div>
 
@@ -1332,13 +1381,13 @@ export default function LandingPage() {
                 </div>
 
                 {/* Right Sidebar - Reservation Form - Mobile Responsive */}
-                <div className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-4 flex flex-col flex-shrink-0 overflow-y-auto min-h-0 max-h-[55vh] lg:max-h-screen">
+                <div className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-4 flex flex-col flex-shrink-0 overflow-y-auto min-h-0 max-h-[55vh] lg:max-h-screen" id="booking-form-container" style={{ scrollBehavior: 'smooth' }}>
                   <div className="mb-3 sm:mb-4">
                     <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">{t.form.title}</h3>
                     <p className="text-xs sm:text-sm text-gray-500">{selectedCar.name} ({selectedCar.year})</p>
                   </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 flex-1 min-h-0">
+                  <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 flex-1 min-h-0" id="booking-form">
                     <div>
                       <Label htmlFor="fullName" className="text-sm font-semibold mb-2 block text-gray-700">
                         {t.form.fullName} *
@@ -1452,14 +1501,14 @@ export default function LandingPage() {
                           value={formData.pickupDate}
                           onChange={(e) => {
                             const selectedDate = e.target.value
-                            const maxDate = getMaxBookingDate()
-                            const minDate = getMinBookingDate()
+                            const maxDate = getMaxPickupDate()
+                            const minDate = getMinPickupDate()
                             
                             if (selectedDate > maxDate) {
                               setDateError(t.form.dateLimitError)
                               setFormData({ ...formData, pickupDate: "", dropOffDate: "" })
                             } else if (selectedDate < minDate) {
-                              setDateError(language === "ar" ? "يرجى اختيار تاريخ من الغد فصاعدًا" : "Please select a date from tomorrow onwards")
+                              setDateError(language === "ar" ? "يرجى اختيار تاريخ من اليوم فصاعدًا" : "Please select a date from today onwards")
                               setFormData({ ...formData, pickupDate: "", dropOffDate: "" })
                             } else {
                               setDateError("")
@@ -1467,8 +1516,8 @@ export default function LandingPage() {
                             }
                           }}
                           className="h-11 text-sm border-2 border-gray-300 bg-white text-gray-900 rounded-lg focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                          min={getMinBookingDate()}
-                          max={getMaxBookingDate()}
+                          min={getMinPickupDate()}
+                          max={getMaxPickupDate()}
                         />
                         {dateError && (
                           <p className="text-xs text-red-500 mt-2 flex items-center gap-1.5">
@@ -1489,10 +1538,10 @@ export default function LandingPage() {
                           value={formData.dropOffDate}
                           onChange={(e) => {
                             const selectedDate = e.target.value
-                            const maxDate = getMaxBookingDate()
+                            const minDate = getMinDropoffDate()
                             
-                            if (selectedDate > maxDate) {
-                              setDateError(t.form.dateLimitError)
+                            if (selectedDate < minDate) {
+                              setDateError(language === "ar" ? "يجب أن يكون تاريخ التسليم بعد تاريخ الاستلام" : "Drop-off date must be after pickup date")
                               setFormData({ ...formData, dropOffDate: "" })
                             } else {
                               setDateError("")
@@ -1500,8 +1549,7 @@ export default function LandingPage() {
                             }
                           }}
                           className="h-11 text-sm border-2 border-gray-300 bg-white text-gray-900 rounded-lg focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                          min={formData.pickupDate || getMinBookingDate()}
-                          max={getMaxBookingDate()}
+                          min={getMinDropoffDate()}
                           disabled={!formData.pickupDate}
                         />
                       </div>
