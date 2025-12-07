@@ -1,26 +1,222 @@
 @import "tailwindcss";
 
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Metallic Color Palette - Charcoal & White */
+  --metallic-charcoal: oklch(0.35 0.02 250);
+  --metallic-white: oklch(0.95 0.01 250);
+  --metallic-charcoal-light: oklch(0.42 0.02 250);
+  --metallic-charcoal-dark: oklch(0.28 0.02 250);
+  --metallic-white-dark: oklch(0.88 0.01 250);
+  
+  --background: var(--metallic-white);
+  --foreground: var(--metallic-charcoal-dark);
+  --card: var(--metallic-white);
+  --card-foreground: var(--metallic-charcoal-dark);
+  --popover: var(--metallic-white);
+  --popover-foreground: var(--metallic-charcoal-dark);
+  --primary: var(--metallic-charcoal);
+  --primary-foreground: var(--metallic-white);
+  /* HSL format for Magic UI Shiny Button compatibility - converted from oklch(0.35 0.02 250) */
+  --primary-hsl: 210 15% 35%;
+  /* RGB format for direct CSS usage in gradients */
+  --primary-rgb: 70, 75, 85;
+  --secondary: var(--metallic-charcoal-light);
+  --secondary-foreground: var(--metallic-white);
+  --muted: var(--metallic-white-dark);
+  --muted-foreground: var(--metallic-charcoal);
+  --accent: var(--metallic-charcoal);
+  --accent-foreground: var(--metallic-white);
+  --destructive: var(--metallic-charcoal-dark);
+  --destructive-foreground: var(--metallic-white);
+  --border: oklch(0.85 0.01 250);
+  --input: var(--metallic-white);
+  --ring: var(--metallic-charcoal);
+  --radius: 1rem;
+}
+
+.dark {
+  --background: var(--metallic-charcoal-dark);
+  --foreground: var(--metallic-white);
+  --card: var(--metallic-charcoal);
+  --card-foreground: var(--metallic-white);
+  --popover: var(--metallic-charcoal);
+  --popover-foreground: var(--metallic-white);
+  --primary: var(--metallic-white);
+  --primary-foreground: var(--metallic-charcoal-dark);
+  --secondary: var(--metallic-charcoal-light);
+  --secondary-foreground: var(--metallic-white);
+  --muted: var(--metallic-charcoal);
+  --muted-foreground: var(--metallic-white-dark);
+  --accent: var(--metallic-white);
+  --accent-foreground: var(--metallic-charcoal-dark);
+  --destructive: var(--metallic-white);
+  --destructive-foreground: var(--metallic-charcoal-dark);
+  --border: oklch(0.45 0.02 250);
+  --input: var(--metallic-charcoal);
+  --ring: var(--metallic-white);
 }
 
 @theme inline {
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --font-mono: "Geist Mono", "Geist Mono Fallback";
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  
+  /* Font classes for language switching */
+  .font-english {
+    font-family: var(--font-sans), sans-serif;
+  }
+  
+  .font-english .font-serif {
+    font-family: var(--font-serif), serif;
+  }
+  
+  .font-arabic {
+    font-family: var(--font-arabic-sans), var(--font-sans), sans-serif;
+  }
+  
+  .font-arabic .font-serif {
+    font-family: var(--font-arabic-serif), var(--font-serif), serif;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Glassmorphism utility classes */
+.glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.glass-strong {
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.glass-dark {
+  background: rgba(60, 60, 70, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Custom animations for luxury feel */
+@keyframes pulse-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(60, 60, 70, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(60, 60, 70, 0.5);
+  }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Enhanced radial gradient spotlight effect */
+.bg-gradient-radial {
+  background: radial-gradient(circle, var(--tw-gradient-stops));
+}
+
+/* Metallic matte white background */
+.metallic-matte-white {
+  background: linear-gradient(
+    135deg,
+    #fafafa,
+    #eeeeee,
+    #f5f5f5,
+    #e6e6e6
+  );
+  background-size: 400% 400%;
+}
+
+/* Date Picker Styling - Clear and User-Friendly */
+input[type="date"] {
+  color: #1f2937;
+  background-color: #ffffff;
+  border: 2px solid #d1d5db;
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+input[type="date"]:focus {
+  outline: none;
+  border-color: #374151;
+  box-shadow: 0 0 0 3px rgba(55, 65, 81, 0.1);
+}
+
+input[type="date"]:disabled {
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(0.5);
+  opacity: 0.7;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Firefox date picker styling */
+input[type="date"]::-moz-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+input[type="date"]::-moz-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Comet Card 3D Perspective Styles */
+.perspective-distant {
+  perspective: 1000px;
+}
+
+.transform-3d {
+  transform-style: preserve-3d;
 }
