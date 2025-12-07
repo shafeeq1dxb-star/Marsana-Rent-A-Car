@@ -36,6 +36,12 @@ async function saveSubmissions(submissions: any[]) {
 
 // Send email notification
 async function sendEmailNotification(submission: any) {
+  // Only send email if SMTP is configured
+  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    console.log("SMTP not configured, skipping email notification")
+    return false
+  }
+
   const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.gmail.com",
     port: parseInt(process.env.SMTP_PORT || "587"),
