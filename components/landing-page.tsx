@@ -314,39 +314,72 @@ export default function LandingPage() {
   useEffect(() => {
     if (currentView !== "car-detail") return
     
-    const formContainer = document.getElementById("booking-form-container")
-    const formInputs = document.querySelectorAll("#booking-form input, #booking-form select, #booking-form textarea")
-    
-    const handleFocus = (e: Event) => {
-      const target = e.target as HTMLElement
-      if (formContainer && target) {
-        // Small delay to ensure input is focused
+    // Wait for DOM to be ready
+    const timeoutId = setTimeout(() => {
+      const formContainer = document.getElementById("booking-form-container")
+      const formInputs = document.querySelectorAll("#booking-form input, #booking-form select, #booking-form textarea")
+      
+      if (!formContainer) return
+      
+      const handleFocus = (e: Event) => {
+        const target = e.target as HTMLElement
+        if (!formContainer || !target) return
+        
+        // Prevent window scroll
+        window.scrollTo({ top: 0, behavior: 'instant' })
+        
+        // Delay to allow keyboard to appear on mobile
         setTimeout(() => {
+          if (!formContainer || !target) return
+          
           const containerRect = formContainer.getBoundingClientRect()
           const inputRect = target.getBoundingClientRect()
           
-          // Check if input is outside visible area of form container
-          if (inputRect.top < containerRect.top || inputRect.bottom > containerRect.bottom) {
-            // Scroll the form container, not the window
-            const scrollOffset = inputRect.top - containerRect.top - 20 // 20px padding from top
-            formContainer.scrollBy({
-              top: scrollOffset,
+          // Get current scroll position
+          const currentScrollTop = formContainer.scrollTop
+          
+          // Calculate input position relative to container's scrollable content
+          const inputOffsetTop = (target as HTMLElement).offsetTop
+          const containerPadding = 16 // padding from container
+          const desiredPadding = 30 // desired padding from top when scrolled
+          
+          // Calculate where we want to scroll to
+          let targetScrollTop = inputOffsetTop - desiredPadding
+          
+          // Ensure we don't scroll beyond bounds
+          const maxScroll = formContainer.scrollHeight - formContainer.clientHeight
+          targetScrollTop = Math.max(0, Math.min(targetScrollTop, maxScroll))
+          
+          // Only scroll if input is not already visible
+          const inputVisibleTop = inputOffsetTop - currentScrollTop
+          const inputVisibleBottom = inputVisibleTop + inputRect.height
+          const visibleAreaTop = containerPadding
+          const visibleAreaBottom = formContainer.clientHeight - containerPadding
+          
+          if (inputVisibleTop < visibleAreaTop || inputVisibleBottom > visibleAreaBottom) {
+            formContainer.scrollTo({
+              top: targetScrollTop,
               behavior: 'smooth'
             })
           }
-        }, 100)
+        }, 400) // Delay for mobile keyboard animation
       }
-    }
 
-    formInputs.forEach(input => {
-      input.addEventListener('focus', handleFocus)
-    })
-
-    return () => {
       formInputs.forEach(input => {
-        input.removeEventListener('focus', handleFocus)
+        input.addEventListener('focus', handleFocus)
+        // Also handle click/tap for mobile
+        input.addEventListener('click', handleFocus)
       })
-    }
+
+      return () => {
+        formInputs.forEach(input => {
+          input.removeEventListener('focus', handleFocus)
+          input.removeEventListener('click', handleFocus)
+        })
+      }
+    }, 100)
+
+    return () => clearTimeout(timeoutId)
   }, [currentView, selectedCar])
 
 
@@ -1134,7 +1167,7 @@ export default function LandingPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
-              className="h-screen bg-gray-50 flex flex-col overflow-hidden"
+              className="h-screen bg-gray-50 flex flex-col overflow-hidden fixed inset-0 w-full z-50"
               onAnimationStart={() => {
                 // Ensure scroll to top when component mounts
                 window.scrollTo({ top: 0, behavior: "smooth" })
@@ -1381,7 +1414,7 @@ export default function LandingPage() {
                 </div>
 
                 {/* Right Sidebar - Reservation Form - Mobile Responsive */}
-                <div className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-4 flex flex-col flex-shrink-0 overflow-y-auto min-h-0 max-h-[55vh] lg:max-h-screen" id="booking-form-container" style={{ scrollBehavior: 'smooth' }}>
+                <div className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-4 flex flex-col flex-shrink-0 overflow-y-auto min-h-0 max-h-[55vh] lg:max-h-screen" id="booking-form-container" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
                   <div className="mb-3 sm:mb-4">
                     <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">{t.form.title}</h3>
                     <p className="text-xs sm:text-sm text-gray-500">{selectedCar.name} ({selectedCar.year})</p>
@@ -1613,7 +1646,7 @@ export default function LandingPage() {
         </AnimatePresence>
       </div>
       
-      <Footer />
+      {currentView !== "car-detail" && <Footer />}
     </div>
     )
   }
