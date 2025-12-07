@@ -265,6 +265,8 @@ export default function LandingPage() {
   const [mounted, setMounted] = useState(false)
   const [dateError, setDateError] = useState<string>("")
   const [carAnimationKey, setCarAnimationKey] = useState(0)
+  const [formStep, setFormStep] = useState(1)
+  const [isMobile, setIsMobile] = useState(false)
   const [formData, setFormData] = useState({
     fullName: "",
     phone: "",
@@ -303,6 +305,12 @@ export default function LandingPage() {
 
   useEffect(() => {
     setMounted(true)
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
   // Ensure scroll to top when ANY view changes
@@ -310,76 +318,11 @@ export default function LandingPage() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }, [currentView])
 
-  // Handle mobile form field focus - scroll only the form container, not the whole page
+  // Reset form step when car changes
   useEffect(() => {
-    if (currentView !== "car-detail") return
-    
-    // Wait for DOM to be ready
-    const timeoutId = setTimeout(() => {
-      const formContainer = document.getElementById("booking-form-container")
-      const formInputs = document.querySelectorAll("#booking-form input, #booking-form select, #booking-form textarea")
-      
-      if (!formContainer) return
-      
-      const handleFocus = (e: Event) => {
-        const target = e.target as HTMLElement
-        if (!formContainer || !target) return
-        
-        // Prevent window scroll
-        window.scrollTo({ top: 0, behavior: 'instant' })
-        
-        // Delay to allow keyboard to appear on mobile
-        setTimeout(() => {
-          if (!formContainer || !target) return
-          
-          const containerRect = formContainer.getBoundingClientRect()
-          const inputRect = target.getBoundingClientRect()
-          
-          // Get current scroll position
-          const currentScrollTop = formContainer.scrollTop
-          
-          // Calculate input position relative to container's scrollable content
-          const inputOffsetTop = (target as HTMLElement).offsetTop
-          const containerPadding = 16 // padding from container
-          const desiredPadding = 30 // desired padding from top when scrolled
-          
-          // Calculate where we want to scroll to
-          let targetScrollTop = inputOffsetTop - desiredPadding
-          
-          // Ensure we don't scroll beyond bounds
-          const maxScroll = formContainer.scrollHeight - formContainer.clientHeight
-          targetScrollTop = Math.max(0, Math.min(targetScrollTop, maxScroll))
-          
-          // Only scroll if input is not already visible
-          const inputVisibleTop = inputOffsetTop - currentScrollTop
-          const inputVisibleBottom = inputVisibleTop + inputRect.height
-          const visibleAreaTop = containerPadding
-          const visibleAreaBottom = formContainer.clientHeight - containerPadding
-          
-          if (inputVisibleTop < visibleAreaTop || inputVisibleBottom > visibleAreaBottom) {
-            formContainer.scrollTo({
-              top: targetScrollTop,
-              behavior: 'smooth'
-            })
-          }
-        }, 400) // Delay for mobile keyboard animation
-      }
-
-      formInputs.forEach(input => {
-        input.addEventListener('focus', handleFocus)
-        // Also handle click/tap for mobile
-        input.addEventListener('click', handleFocus)
-      })
-
-      return () => {
-        formInputs.forEach(input => {
-          input.removeEventListener('focus', handleFocus)
-          input.removeEventListener('click', handleFocus)
-        })
-      }
-    }, 100)
-
-    return () => clearTimeout(timeoutId)
+    if (currentView === "car-detail") {
+      setFormStep(1)
+    }
   }, [currentView, selectedCar])
 
 
@@ -388,11 +331,56 @@ export default function LandingPage() {
   const handleCarSelect = (car: CarData) => {
     setSelectedCar(car)
     setCarAnimationKey((prev) => prev + 1) // Trigger animation restart
+    setFormStep(1) // Reset to first step
     setCurrentView("car-detail")
     // Scroll to top immediately when navigating to car detail page
     setTimeout(() => {
       window.scrollTo({ top: 0, behavior: "smooth" })
     }, 0)
+  }
+
+  // Auto-advance to next step when field is completed
+  const handleFieldComplete = (fieldName: string, value: string) => {
+    setFormData({ ...formData, [fieldName]: value })
+    
+    // Auto-advance logic
+    if (formStep === 1 && fieldName === "fullName" && value.trim()) {
+      // Move to phone field (same step)
+      setTimeout(() => {
+        const phoneInput = document.getElementById("phone")
+        phoneInput?.focus()
+      }, 300)
+    } else if (formStep === 1 && fieldName === "phone" && value.trim().length >= 8) {
+      // Move to next step
+      setTimeout(() => {
+        setFormStep(2)
+      }, 500)
+    } else if (formStep === 2 && fieldName === "collectionMethod") {
+      // If branch selected, wait for branch selection, otherwise move to dates
+      if (value === "branch") {
+        setTimeout(() => {
+          const branchSelect = document.getElementById("branch")
+          branchSelect?.focus()
+        }, 300)
+      } else {
+        setTimeout(() => {
+          setFormStep(3)
+        }, 500)
+      }
+    } else if (formStep === 2 && fieldName === "selectedBranch" && value) {
+      setTimeout(() => {
+        setFormStep(3)
+      }, 500)
+    } else if (formStep === 3 && fieldName === "pickupDate" && value) {
+      setTimeout(() => {
+        const dropOffInput = document.getElementById("dropOffDate")
+        dropOffInput?.focus()
+      }, 300)
+    } else if (formStep === 3 && fieldName === "dropOffDate" && value) {
+      setTimeout(() => {
+        setFormStep(4)
+      }, 500)
+    }
   }
 
   const handleShowcaseView = () => {
@@ -1168,6 +1156,15 @@ export default function LandingPage() {
               exit={{ opacity: 0 }}
               transition={{ duration: 0.5 }}
               className="h-screen bg-gray-50 flex flex-col overflow-hidden fixed inset-0 w-full z-50"
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: '100dvh', // Dynamic viewport height for mobile
+                overflow: 'hidden',
+              }}
               onAnimationStart={() => {
                 // Ensure scroll to top when component mounts
                 window.scrollTo({ top: 0, behavior: "smooth" })
@@ -1202,7 +1199,7 @@ export default function LandingPage() {
               {/* Main Content Area - Mobile Responsive - Fits Screen */}
               <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
                 {/* Mobile: Car Image Section - Top Half */}
-                <div className="lg:hidden flex-shrink-0 h-[45vh] min-h-[350px] bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden" style={{ perspective: "1200px", perspectiveOrigin: "center center" }}>
+                <div className="lg:hidden flex-shrink-0 h-[35vh] min-h-[280px] max-h-[320px] bg-gray-50 flex items-center justify-center p-4 relative overflow-hidden" style={{ perspective: "1200px", perspectiveOrigin: "center center" }}>
                   <div className="relative w-full h-full max-w-md flex items-center justify-center" style={{ transformStyle: "preserve-3d" }}>
                     <motion.div
                       key={`car-container-mobile-${selectedCar.id}-${carAnimationKey}`}
@@ -1414,230 +1411,438 @@ export default function LandingPage() {
                 </div>
 
                 {/* Right Sidebar - Reservation Form - Mobile Responsive */}
-                <div className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 p-3 sm:p-4 flex flex-col flex-shrink-0 overflow-y-auto min-h-0 max-h-[55vh] lg:max-h-screen" id="booking-form-container" style={{ scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch' }}>
-                  <div className="mb-3 sm:mb-4">
+                <div 
+                  className="w-full lg:w-80 xl:w-96 bg-white border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col flex-shrink-0 overflow-hidden min-h-0 lg:h-full" 
+                  id="booking-form-container"
+                  style={mounted && isMobile ? {
+                    height: 'calc(100dvh - 35vh - 60px)',
+                    maxHeight: 'calc(100dvh - 35vh - 60px)',
+                  } : {}}
+                >
+                  {/* Step Indicator - Mobile */}
+                  <div className="lg:hidden px-4 pt-3 pb-2 border-b border-gray-200 bg-gray-50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium text-gray-600">
+                        {language === "ar" ? `الخطوة ${formStep} من 4` : `Step ${formStep} of 4`}
+                      </span>
+                      <span className="text-xs text-gray-500">{Math.round((formStep / 4) * 100)}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
+                      <div 
+                        className="bg-gray-900 rounded-full h-1.5 transition-all duration-300"
+                        style={{ width: `${(formStep / 4) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Form Header */}
+                  <div className="px-3 sm:px-4 pt-3 pb-2 flex-shrink-0">
                     <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-1">{t.form.title}</h3>
                     <p className="text-xs sm:text-sm text-gray-500">{selectedCar.name} ({selectedCar.year})</p>
                   </div>
 
-                  <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4 flex-1 min-h-0" id="booking-form">
-                    <div>
-                      <Label htmlFor="fullName" className="text-sm font-semibold mb-2 block text-gray-700">
-                        {t.form.fullName} *
-                      </Label>
-                      <Input
-                        id="fullName"
-                        type="text"
-                        required
-                        value={formData.fullName}
-                        onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                        className="h-11 text-sm border border-gray-300 rounded-lg focus:border-gray-900 focus:ring-1 focus:ring-gray-900 bg-white"
-                        placeholder={language === "ar" ? "أدخل اسمك الكامل" : "Enter your full name"}
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="phone" className="text-sm font-semibold mb-2 block text-gray-700">
-                        {t.form.phone} *
-                      </Label>
-                      <div className="flex gap-2">
-                        <select
-                          value={formData.countryCode}
-                          onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
-                          className="h-11 px-3 border border-gray-300 rounded-lg bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 text-sm"
+                  {/* Scrollable Form Content */}
+                  <div 
+                    className="flex-1 overflow-y-auto px-3 sm:px-4 pb-4 lg:pb-4" 
+                    style={{ 
+                      WebkitOverflowScrolling: 'touch', 
+                      scrollBehavior: 'smooth',
+                      overscrollBehavior: 'contain',
+                      WebkitOverscrollBehavior: 'contain',
+                    }}
+                  >
+                    <form onSubmit={handleSubmit} className="space-y-4 pt-2" id="booking-form">
+                      {/* Step 1: Personal Information */}
+                      {formStep >= 1 && (
+                        <motion.div
+                          initial={{ opacity: 0, x: formStep === 1 ? 0 : -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: 0.3 }}
+                          className={formStep === 1 ? "block" : "hidden"}
                         >
-                          <option value="+966">🇸🇦 +966</option>
-                          <option value="+971">🇦🇪 +971</option>
-                          <option value="+973">🇧🇭 +973</option>
-                          <option value="+974">🇶🇦 +974</option>
-                          <option value="+965">🇰🇼 +965</option>
-                        </select>
-                        <Input
-                          id="phone"
-                          type="tel"
-                          required
-                          value={formData.phone}
-                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                          className="flex-1 h-11 text-sm border border-gray-300 rounded-lg focus:border-gray-900 focus:ring-1 focus:ring-gray-900 bg-white"
-                          placeholder="5xxxxxxxx"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-xs sm:text-sm font-semibold mb-1.5 block text-gray-700">{t.form.collectionMethod} *</Label>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, collectionMethod: "branch" })}
-                          className={`p-2 sm:p-2.5 rounded-lg border-2 transition-all duration-200 text-center ${
-                            formData.collectionMethod === "branch"
-                              ? "border-gray-900 bg-gray-50"
-                              : "border-gray-200 hover:border-gray-300 bg-white"
-                          }`}
-                        >
-                          <MapPin className="h-4 w-4 sm:h-5 sm:w-5 mx-auto mb-1.5 text-gray-600" />
-                          <div className="font-semibold text-xs sm:text-sm text-gray-900">{t.form.pickupBranch}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">{t.form.pickupDesc}</div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, collectionMethod: "delivery" })}
-                          className={`p-2 sm:p-2.5 rounded-lg border-2 transition-all duration-200 text-center relative ${
-                            formData.collectionMethod === "delivery"
-                              ? "border-gray-900 bg-gray-50"
-                              : "border-gray-200 hover:border-gray-300 bg-white"
-                          }`}
-                        >
-                          <Truck className="h-4 w-4 sm:h-5 sm:w-5 mx-auto mb-1.5 text-gray-600" />
-                          <div className="font-semibold text-xs sm:text-sm text-gray-900">{t.form.delivery}</div>
-                          <div className="text-xs text-gray-500 mt-0.5">{t.form.deliveryDesc}</div>
-                          <div className="absolute top-1.5 right-1.5 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded-full font-bold">
-                            {t.form.deliveryFee}
+                          <div className="mb-4">
+                            <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                              <User className="h-5 w-5 text-gray-600" />
+                              {language === "ar" ? "المعلومات الشخصية" : "Personal Information"}
+                            </h4>
                           </div>
-                        </button>
-                      </div>
-                    </div>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="fullName" className="text-sm font-semibold mb-2 block text-gray-700">
+                                {t.form.fullName} *
+                              </Label>
+                              <Input
+                                id="fullName"
+                                type="text"
+                                required
+                                value={formData.fullName}
+                                onChange={(e) => handleFieldComplete("fullName", e.target.value)}
+                                onBlur={(e) => {
+                                  if (e.target.value.trim()) {
+                                    setTimeout(() => {
+                                      const phoneInput = document.getElementById("phone")
+                                      phoneInput?.focus()
+                                    }, 200)
+                                  }
+                                }}
+                                className="h-12 text-base border-2 border-gray-300 rounded-lg focus:border-gray-900 focus:ring-2 focus:ring-gray-900 bg-white"
+                                placeholder={language === "ar" ? "أدخل اسمك الكامل" : "Enter your full name"}
+                              />
+                            </div>
+                            <div>
+                              <Label htmlFor="phone" className="text-sm font-semibold mb-2 block text-gray-700">
+                                {t.form.phone} *
+                              </Label>
+                              <div className="flex gap-2">
+                                <select
+                                  value={formData.countryCode}
+                                  onChange={(e) => setFormData({ ...formData, countryCode: e.target.value })}
+                                  className="h-12 px-3 border-2 border-gray-300 rounded-lg bg-white focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-sm"
+                                >
+                                  <option value="+966">🇸🇦 +966</option>
+                                  <option value="+971">🇦🇪 +971</option>
+                                  <option value="+973">🇧🇭 +973</option>
+                                  <option value="+974">🇶🇦 +974</option>
+                                  <option value="+965">🇰🇼 +965</option>
+                                </select>
+                                <Input
+                                  id="phone"
+                                  type="tel"
+                                  required
+                                  value={formData.phone}
+                                  onChange={(e) => {
+                                    handleFieldComplete("phone", e.target.value)
+                                    if (e.target.value.trim().length >= 8 && formData.fullName.trim()) {
+                                      setTimeout(() => {
+                                        setFormStep(2)
+                                      }, 500)
+                                    }
+                                  }}
+                                  className="flex-1 h-12 text-base border-2 border-gray-300 rounded-lg focus:border-gray-900 focus:ring-2 focus:ring-gray-900 bg-white"
+                                  placeholder="5xxxxxxxx"
+                                />
+                              </div>
+                            </div>
+                            {formData.fullName.trim() && formData.phone.trim().length >= 8 && (
+                              <Button
+                                type="button"
+                                onClick={() => setFormStep(2)}
+                                className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3 rounded-lg"
+                              >
+                                {language === "ar" ? "التالي" : "Next"} <ArrowRight className={`${language === "ar" ? "mr-2 rotate-180" : "ml-2"} h-4 w-4`} />
+                              </Button>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
 
-                    {formData.collectionMethod === "branch" && (
-                      <div>
-                        <Label htmlFor="branch" className="text-sm font-semibold mb-2 block text-gray-700">
-                          {t.form.selectBranch} *
-                        </Label>
-                        <select
-                          id="branch"
-                          value={formData.selectedBranch}
-                          onChange={(e) => setFormData({ ...formData, selectedBranch: e.target.value })}
-                          className="w-full h-11 px-4 border border-gray-300 rounded-lg bg-white focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900 text-sm"
-                          required
+                      {/* Step 2: Collection Method */}
+                      {formStep >= 2 && (
+                        <motion.div
+                          initial={{ opacity: 0, x: formStep === 2 ? 0 : -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: 0.3 }}
+                          className={formStep === 2 ? "block" : "hidden"}
                         >
-                          <option value="Sulaimaniyya Jeddah">
-                            {language === "ar" ? "السليمانية، جدة" : "Sulaimaniyya, Jeddah"}
-                          </option>
-                          <option value="Garnatha Jeddah">
-                            {language === "ar" ? "غرناطة، جدة" : "Garnatha, Jeddah"}
-                          </option>
-                        </select>
-                      </div>
-                    )}
+                          <div className="mb-4">
+                            <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                              <MapPin className="h-5 w-5 text-gray-600" />
+                              {t.form.collectionMethod}
+                            </h4>
+                          </div>
+                          <div className="space-y-4">
+                            <div>
+                              <Label className="text-sm font-semibold mb-2 block text-gray-700">{t.form.collectionMethod} *</Label>
+                              <div className="grid grid-cols-1 gap-3">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData({ ...formData, collectionMethod: "branch" })
+                                    setTimeout(() => {
+                                      const branchSelect = document.getElementById("branch")
+                                      branchSelect?.focus()
+                                    }, 300)
+                                  }}
+                                  className={`p-4 rounded-lg border-2 transition-all duration-200 text-center ${
+                                    formData.collectionMethod === "branch"
+                                      ? "border-gray-900 bg-gray-50"
+                                      : "border-gray-200 hover:border-gray-300 bg-white"
+                                  }`}
+                                >
+                                  <MapPin className="h-5 w-5 mx-auto mb-2 text-gray-600" />
+                                  <div className="font-semibold text-sm text-gray-900">{t.form.pickupBranch}</div>
+                                  <div className="text-xs text-gray-500 mt-1">{t.form.pickupDesc}</div>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData({ ...formData, collectionMethod: "delivery" })
+                                    setTimeout(() => {
+                                      setFormStep(3)
+                                    }, 500)
+                                  }}
+                                  className={`p-4 rounded-lg border-2 transition-all duration-200 text-center relative ${
+                                    formData.collectionMethod === "delivery"
+                                      ? "border-gray-900 bg-gray-50"
+                                      : "border-gray-200 hover:border-gray-300 bg-white"
+                                  }`}
+                                >
+                                  <Truck className="h-5 w-5 mx-auto mb-2 text-gray-600" />
+                                  <div className="font-semibold text-sm text-gray-900">{t.form.delivery}</div>
+                                  <div className="text-xs text-gray-500 mt-1">{t.form.deliveryDesc}</div>
+                                  <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+                                    {t.form.deliveryFee}
+                                  </div>
+                                </button>
+                              </div>
+                            </div>
+                            {formData.collectionMethod === "branch" && (
+                              <div>
+                                <Label htmlFor="branch" className="text-sm font-semibold mb-2 block text-gray-700">
+                                  {t.form.selectBranch} *
+                                </Label>
+                                <select
+                                  id="branch"
+                                  value={formData.selectedBranch}
+                                  onChange={(e) => {
+                                    handleFieldComplete("selectedBranch", e.target.value)
+                                    setTimeout(() => {
+                                      setFormStep(3)
+                                    }, 500)
+                                  }}
+                                  className="w-full h-12 px-4 border-2 border-gray-300 rounded-lg bg-white focus:border-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900 text-base"
+                                  required
+                                >
+                                  <option value="Sulaimaniyya Jeddah">
+                                    {language === "ar" ? "السليمانية، جدة" : "Sulaimaniyya, Jeddah"}
+                                  </option>
+                                  <option value="Garnatha Jeddah">
+                                    {language === "ar" ? "غرناطة، جدة" : "Garnatha, Jeddah"}
+                                  </option>
+                                </select>
+                              </div>
+                            )}
+                            <div className="flex gap-3">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setFormStep(1)}
+                                className="flex-1 py-3 rounded-lg border-gray-300 text-gray-700 hover:bg-gray-50"
+                              >
+                                <ArrowLeft className={`${language === "ar" ? "ml-2 rotate-180" : "mr-2"} h-4 w-4`} />
+                                {language === "ar" ? "السابق" : "Back"}
+                              </Button>
+                              {(formData.collectionMethod === "delivery" || (formData.collectionMethod === "branch" && formData.selectedBranch)) && (
+                                <Button
+                                  type="button"
+                                  onClick={() => setFormStep(3)}
+                                  className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-3 rounded-lg"
+                                >
+                                  {language === "ar" ? "التالي" : "Next"} <ArrowRight className={`${language === "ar" ? "mr-2 rotate-180" : "ml-2"} h-4 w-4`} />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div>
-                        <Label htmlFor="pickupDate" className="text-sm font-semibold mb-2 block text-gray-700 flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-gray-600" />
-                          {t.form.pickupDate} *
-                        </Label>
-                        <Input
-                          id="pickupDate"
-                          type="date"
-                          required
-                          value={formData.pickupDate}
-                          onChange={(e) => {
-                            const selectedDate = e.target.value
-                            const maxDate = getMaxPickupDate()
-                            const minDate = getMinPickupDate()
-                            
-                            if (selectedDate > maxDate) {
-                              setDateError(t.form.dateLimitError)
-                              setFormData({ ...formData, pickupDate: "", dropOffDate: "" })
-                            } else if (selectedDate < minDate) {
-                              setDateError(language === "ar" ? "يرجى اختيار تاريخ من اليوم فصاعدًا" : "Please select a date from today onwards")
-                              setFormData({ ...formData, pickupDate: "", dropOffDate: "" })
-                            } else {
-                              setDateError("")
-                              setFormData({ ...formData, pickupDate: selectedDate, dropOffDate: "" })
-                            }
-                          }}
-                          className="h-11 text-sm border-2 border-gray-300 bg-white text-gray-900 rounded-lg focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                          min={getMinPickupDate()}
-                          max={getMaxPickupDate()}
-                        />
-                        {dateError && (
-                          <p className="text-xs text-red-500 mt-2 flex items-center gap-1.5">
-                            <AlertCircle className="h-3.5 w-3.5" />
-                            {dateError}
-                          </p>
-                        )}
-                      </div>
-                      <div>
-                        <Label htmlFor="dropOffDate" className="text-sm font-semibold mb-2 block text-gray-700 flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-gray-600" />
-                          {t.form.dropOffDate} *
-                        </Label>
-                        <Input
-                          id="dropOffDate"
-                          type="date"
-                          required
-                          value={formData.dropOffDate}
-                          onChange={(e) => {
-                            const selectedDate = e.target.value
-                            const minDate = getMinDropoffDate()
-                            
-                            if (selectedDate < minDate) {
-                              setDateError(language === "ar" ? "يجب أن يكون تاريخ التسليم بعد تاريخ الاستلام" : "Drop-off date must be after pickup date")
-                              setFormData({ ...formData, dropOffDate: "" })
-                            } else {
-                              setDateError("")
-                              setFormData({ ...formData, dropOffDate: selectedDate })
-                            }
-                          }}
-                          className="h-11 text-sm border-2 border-gray-300 bg-white text-gray-900 rounded-lg focus:border-gray-900 focus:ring-1 focus:ring-gray-900"
-                          min={getMinDropoffDate()}
-                          disabled={!formData.pickupDate}
-                        />
-                      </div>
-                    </div>
+                      {/* Step 3: Dates */}
+                      {formStep >= 3 && (
+                        <motion.div
+                          initial={{ opacity: 0, x: formStep === 3 ? 0 : -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: 0.3 }}
+                          className={formStep === 3 ? "block" : "hidden"}
+                        >
+                          <div className="mb-4">
+                            <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                              <Calendar className="h-5 w-5 text-gray-600" />
+                              {language === "ar" ? "التواريخ" : "Dates"}
+                            </h4>
+                          </div>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="pickupDate" className="text-sm font-semibold mb-2 block text-gray-700 flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-gray-600" />
+                                {t.form.pickupDate} *
+                              </Label>
+                              <Input
+                                id="pickupDate"
+                                type="date"
+                                required
+                                value={formData.pickupDate}
+                                onChange={(e) => {
+                                  const selectedDate = e.target.value
+                                  const maxDate = getMaxPickupDate()
+                                  const minDate = getMinPickupDate()
+                                  
+                                  if (selectedDate > maxDate) {
+                                    setDateError(t.form.dateLimitError)
+                                    setFormData({ ...formData, pickupDate: "", dropOffDate: "" })
+                                  } else if (selectedDate < minDate) {
+                                    setDateError(language === "ar" ? "يرجى اختيار تاريخ من اليوم فصاعدًا" : "Please select a date from today onwards")
+                                    setFormData({ ...formData, pickupDate: "", dropOffDate: "" })
+                                  } else {
+                                    setDateError("")
+                                    handleFieldComplete("pickupDate", selectedDate)
+                                    setTimeout(() => {
+                                      const dropOffInput = document.getElementById("dropOffDate")
+                                      dropOffInput?.focus()
+                                    }, 300)
+                                  }
+                                }}
+                                className="h-12 text-base border-2 border-gray-300 bg-white text-gray-900 rounded-lg focus:border-gray-900 focus:ring-2 focus:ring-gray-900"
+                                min={getMinPickupDate()}
+                                max={getMaxPickupDate()}
+                              />
+                              {dateError && (
+                                <p className="text-xs text-red-500 mt-2 flex items-center gap-1.5">
+                                  <AlertCircle className="h-3.5 w-3.5" />
+                                  {dateError}
+                                </p>
+                              )}
+                            </div>
+                            <div>
+                              <Label htmlFor="dropOffDate" className="text-sm font-semibold mb-2 block text-gray-700 flex items-center gap-2">
+                                <Calendar className="h-4 w-4 text-gray-600" />
+                                {t.form.dropOffDate} *
+                              </Label>
+                              <Input
+                                id="dropOffDate"
+                                type="date"
+                                required
+                                value={formData.dropOffDate}
+                                onChange={(e) => {
+                                  const selectedDate = e.target.value
+                                  const minDate = getMinDropoffDate()
+                                  
+                                  if (selectedDate < minDate) {
+                                    setDateError(language === "ar" ? "يجب أن يكون تاريخ التسليم بعد تاريخ الاستلام" : "Drop-off date must be after pickup date")
+                                    setFormData({ ...formData, dropOffDate: "" })
+                                  } else {
+                                    setDateError("")
+                                    handleFieldComplete("dropOffDate", selectedDate)
+                                    setTimeout(() => {
+                                      setFormStep(4)
+                                    }, 500)
+                                  }
+                                }}
+                                className="h-12 text-base border-2 border-gray-300 bg-white text-gray-900 rounded-lg focus:border-gray-900 focus:ring-2 focus:ring-gray-900"
+                                min={getMinDropoffDate()}
+                                disabled={!formData.pickupDate}
+                              />
+                            </div>
+                            {formData.pickupDate && formData.dropOffDate && (
+                              <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
+                                <div className="flex justify-between items-center">
+                                  <span className="text-sm font-semibold text-gray-900">{t.form.totalAmount}</span>
+                                  <span className="text-lg font-bold text-gray-900">
+                                    {calculateTotal()} {language === "ar" ? "ريال" : "SAR"}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-500 mt-2">{t.form.includesVAT}</p>
+                                {formData.collectionMethod === "delivery" && (
+                                  <p className="text-xs text-green-600 font-semibold mt-1">
+                                    {language === "ar" ? "(يشمل 50 ريال رسوم التوصيل)" : "(Includes 50 SAR delivery fee)"}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex gap-3">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setFormStep(2)}
+                                className="flex-1 py-3 rounded-lg border-gray-300 text-gray-700 hover:bg-gray-50"
+                              >
+                                <ArrowLeft className={`${language === "ar" ? "ml-2 rotate-180" : "mr-2"} h-4 w-4`} />
+                                {language === "ar" ? "السابق" : "Back"}
+                              </Button>
+                              {formData.pickupDate && formData.dropOffDate && (
+                                <Button
+                                  type="button"
+                                  onClick={() => setFormStep(4)}
+                                  className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-3 rounded-lg"
+                                >
+                                  {language === "ar" ? "التالي" : "Next"} <ArrowRight className={`${language === "ar" ? "mr-2 rotate-180" : "ml-2"} h-4 w-4`} />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
 
-                    {formData.pickupDate && formData.dropOffDate && (
-                      <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm font-semibold text-gray-900">{t.form.totalAmount}</span>
-                          <span className="text-lg font-bold text-gray-900">
-                            {calculateTotal()} {language === "ar" ? "ريال" : "SAR"}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-500 mt-2">{t.form.includesVAT}</p>
-                        {formData.collectionMethod === "delivery" && (
-                          <p className="text-xs text-green-600 font-semibold mt-1">
-                            {language === "ar" ? "(يشمل 50 ريال رسوم التوصيل)" : "(Includes 50 SAR delivery fee)"}
-                          </p>
-                        )}
-                      </div>
-                    )}
-
-                    <div>
-                      <Label htmlFor="email" className="text-sm font-semibold mb-2 block text-gray-700">
-                        {t.form.email} <span className="text-gray-500 font-normal">{t.form.emailOptional}</span>
-                      </Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="h-11 text-sm border border-gray-300 rounded-lg focus:border-gray-900 focus:ring-1 focus:ring-gray-900 bg-white"
-                        placeholder={language === "ar" ? "بريدك@مثال.com" : "your.email@example.com"}
-                      />
-                    </div>
-
-                    <div className="flex gap-3 pt-4">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={handleShowcaseView}
-                        className="flex-1 py-3 rounded-lg border-gray-300 text-gray-700 hover:bg-gray-50"
-                      >
-                        <ArrowLeft className={`${language === "ar" ? "ml-2 rotate-180" : "mr-2"} h-4 w-4`} />
-                        {t.form.back}
-                      </Button>
-                      <Button
-                        type="submit"
-                        className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-3 rounded-lg shadow-lg transition-all duration-300 hover:scale-105"
-                      >
-                        <CheckCircle className={`${language === "ar" ? "ml-2" : "mr-2"} h-4 w-4`} />
-                        {t.form.confirm}
-                      </Button>
-                    </div>
-                  </form>
+                      {/* Step 4: Email & Review */}
+                      {formStep >= 4 && (
+                        <motion.div
+                          initial={{ opacity: 0, x: formStep === 4 ? 0 : -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          exit={{ opacity: 0, x: 20 }}
+                          transition={{ duration: 0.3 }}
+                          className={formStep === 4 ? "block" : "hidden"}
+                        >
+                          <div className="mb-4">
+                            <h4 className="text-base font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                              <CheckCircle className="h-5 w-5 text-gray-600" />
+                              {language === "ar" ? "المراجعة والتأكيد" : "Review & Confirm"}
+                            </h4>
+                          </div>
+                          <div className="space-y-4">
+                            <div>
+                              <Label htmlFor="email" className="text-sm font-semibold mb-2 block text-gray-700">
+                                {t.form.email} <span className="text-gray-500 font-normal">{t.form.emailOptional}</span>
+                              </Label>
+                              <Input
+                                id="email"
+                                type="email"
+                                value={formData.email}
+                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                className="h-12 text-base border-2 border-gray-300 rounded-lg focus:border-gray-900 focus:ring-2 focus:ring-gray-900 bg-white"
+                                placeholder={language === "ar" ? "بريدك@مثال.com" : "your.email@example.com"}
+                              />
+                            </div>
+                            {formData.pickupDate && formData.dropOffDate && (
+                              <div className="bg-gray-50 border-2 border-gray-200 rounded-lg p-4">
+                                <div className="flex justify-between items-center mb-2">
+                                  <span className="text-sm font-semibold text-gray-900">{t.form.totalAmount}</span>
+                                  <span className="text-xl font-bold text-gray-900">
+                                    {calculateTotal()} {language === "ar" ? "ريال" : "SAR"}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-gray-500">{t.form.includesVAT}</p>
+                                {formData.collectionMethod === "delivery" && (
+                                  <p className="text-xs text-green-600 font-semibold mt-1">
+                                    {language === "ar" ? "(يشمل 50 ريال رسوم التوصيل)" : "(Includes 50 SAR delivery fee)"}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+                            <div className="flex gap-3">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => setFormStep(3)}
+                                className="flex-1 py-3 rounded-lg border-gray-300 text-gray-700 hover:bg-gray-50"
+                              >
+                                <ArrowLeft className={`${language === "ar" ? "ml-2 rotate-180" : "mr-2"} h-4 w-4`} />
+                                {language === "ar" ? "السابق" : "Back"}
+                              </Button>
+                              <Button
+                                type="submit"
+                                className="flex-1 bg-gray-900 hover:bg-gray-800 text-white py-3 rounded-lg shadow-lg transition-all duration-300 hover:scale-105"
+                              >
+                                <CheckCircle className={`${language === "ar" ? "ml-2" : "mr-2"} h-4 w-4`} />
+                                {t.form.confirm}
+                              </Button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </form>
+                  </div>
                 </div>
               </div>
 
