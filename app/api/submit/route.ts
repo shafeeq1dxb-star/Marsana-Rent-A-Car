@@ -3,14 +3,17 @@ import { writeFile, readFile, mkdir } from "fs/promises"
 import { existsSync } from "fs"
 import path from "path"
 import nodemailer from "nodemailer"
+import os from "os"
 
-const SUBMISSIONS_FILE = path.join(process.cwd(), "data", "submissions.json")
+// Use /tmp on Vercel (serverless), or data/ directory locally
+const isVercel = process.env.VERCEL === "1"
+const SUBMISSIONS_DIR = isVercel ? "/tmp" : path.join(process.cwd(), "data")
+const SUBMISSIONS_FILE = path.join(SUBMISSIONS_DIR, "submissions.json")
 
 // Ensure data directory exists
 async function ensureDataDir() {
-  const dataDir = path.join(process.cwd(), "data")
-  if (!existsSync(dataDir)) {
-    await mkdir(dataDir, { recursive: true })
+  if (!existsSync(SUBMISSIONS_DIR)) {
+    await mkdir(SUBMISSIONS_DIR, { recursive: true })
   }
 }
 
@@ -89,14 +92,28 @@ export async function POST(request: NextRequest) {
       submittedAt: new Date().toISOString(),
     }
 
+    console.log("Received submission:", submission)
+    console.log("Is Vercel:", isVercel)
+    console.log("Submissions file path:", SUBMISSIONS_FILE)
+
     // Load existing submissions
     const submissions = await loadSubmissions()
+    console.log("Loaded submissions count:", submissions.length)
     
     // Add new submission
     submissions.unshift(submission)
     
     // Save to file
-    await saveSubmissions(submissions)
+    try {
+      await saveSubmissions(submissions)
+      console.log("Successfully saved submission to file")
+    } catch (saveError) {
+      console.error("Error saving to file:", saveError)
+      // On Vercel, file writes may fail - log but don't fail the request
+      if (isVercel) {
+        console.warn("Note: File writes on Vercel are ephemeral. Consider using a database for persistence.")
+      }
+    }
 
     // Send email notification (don't block on error)
     sendEmailNotification(submission).catch(console.error)
